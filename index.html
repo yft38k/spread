@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AllChina Buy Spreadsheet Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    input:focus, select:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px #3b82f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 p-6 font-sans">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    <h1 class="text-4xl font-bold text-center text-blue-700">📊 AllChina Buy - Tableur Pro</h1>
+
+    <div class="flex justify-between items-center">
+      <input id="searchInput" type="text" placeholder="🔍 Rechercher..." class="border p-2 rounded w-1/3" onkeyup="filterTable()">
+      <div class="space-x-2">
+        <button onclick="addRow()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">➕ Ajouter</button>
+        <button onclick="exportCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">📤 Export CSV</button>
+        <button onclick="clearStorage()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">🗑 Reset</button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto rounded shadow bg-white border border-gray-200">
+      <table id="spreadsheet" class="min-w-full text-sm text-left">
+        <thead class="bg-blue-100 text-gray-700 uppercase text-xs">
+          <tr>
+            <th class="cursor-pointer px-4 py-2" onclick="sortTable(0)">Produit</th>
+            <th class="cursor-pointer px-4 py-2" onclick="sortTable(1)">Fournisseur</th>
+            <th class="cursor-pointer px-4 py-2" onclick="sortTable(2)">Quantité</th>
+            <th class="cursor-pointer px-4 py-2" onclick="sortTable(3)">Prix</th>
+            <th class="cursor-pointer px-4 py-2" onclick="sortTable(4)">Statut</th>
+            <th class="px-4 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="spreadsheetBody" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let data = JSON.parse(localStorage.getItem('allchina_spreadsheet')) || [
+      { produit: 'LED RGB Strip', fournisseur: 'Shenzhen Light Co.', quantite: 100, prix: '¥250', statut: 'Payé' },
+    ];
+
+    const statuses = ['Payé', 'En attente', 'En cours'];
+
+    function saveData() {
+      localStorage.setItem('allchina_spreadsheet', JSON.stringify(data));
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('spreadsheetBody');
+      tbody.innerHTML = '';
+      data.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2"><input value="${row.produit}" onchange="editCell(${index}, 'produit', this.value)" class="w-full bg-transparent"></td>
+          <td class="px-4 py-2"><input value="${row.fournisseur}" onchange="editCell(${index}, 'fournisseur', this.value)" class="w-full bg-transparent"></td>
+          <td class="px-4 py-2"><input type="number" value="${row.quantite}" onchange="editCell(${index}, 'quantite', this.value)" class="w-full bg-transparent"></td>
+          <td class="px-4 py-2"><input value="${row.prix}" onchange="editCell(${index}, 'prix', this.value)" class="w-full bg-transparent"></td>
+          <td class="px-4 py-2">
+            <select onchange="editCell(${index}, 'statut', this.value)" class="w-full bg-transparent">
+              ${statuses.map(s => `<option ${s === row.statut ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="px-4 py-2 text-center">
+            <button onclick="deleteRow(${index})" class="text-red-500 hover:underline">🗑</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      saveData();
+    }
+
+    function addRow() {
+      data.push({ produit: '', fournisseur: '', quantite: 0, prix: '', statut: 'En attente' });
+      renderTable();
+    }
+
+    function deleteRow(index) {
+      data.splice(index, 1);
+      renderTable();
+    }
+
+    function editCell(index, key, value) {
+      data[index][key] = value;
+      saveData();
+    }
+
+    function filterTable() {
+      const term = document.getElementById('searchInput').value.toLowerCase();
+      const tbody = document.getElementById('spreadsheetBody');
+      Array.from(tbody.rows).forEach(row => {
+        row.style.display = Array.from(row.cells).some(cell =>
+          cell.textContent.toLowerCase().includes(term)
+        ) ? '' : 'none';
+      });
+    }
+
+    function exportCSV() {
+      const headers = ['Produit', 'Fournisseur', 'Quantité', 'Prix', 'Statut'];
+      const rows = data.map(r => [r.produit, r.fournisseur, r.quantite, r.prix, r.statut]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'allchina_spreadsheet.csv';
+      a.click();
+    }
+
+    function clearStorage() {
+      localStorage.removeItem('allchina_spreadsheet');
+      data = [];
+      renderTable();
+    }
+
+    let sortAsc = true;
+    function sortTable(colIndex) {
+      const keys = ['produit', 'fournisseur', 'quantite', 'prix', 'statut'];
+      const key = keys[colIndex];
+      data.sort((a, b) => {
+        const valA = a[key].toString().toLowerCase();
+        const valB = b[key].toString().toLowerCase();
+        return sortAsc ? valA.localeCompare(valB, undefined, { numeric: true }) : valB.localeCompare(valA, undefined, { numeric: true });
+      });
+      sortAsc = !sortAsc;
+      renderTable();
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>
